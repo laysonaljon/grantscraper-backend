@@ -4,6 +4,7 @@ import cors from 'cors';
 
 import connectDB from './mongodb/connect.js';
 import scholarships from './routes/scholarships.js';
+import users from './routes/users.js';
 import initializeCronJobs  from './cronJobs.js';
 
 
@@ -16,7 +17,9 @@ app.use(express.json({ limit: '50mb' }));
 
 app.use('/api/v1/scholarships', scholarships);
 
-initializeCronJobs();
+app.use('/api/v1/users', users);
+
+// initializeCronJobs();
 
 app.get('/', async (req, res) => {
     res.status(200).json({
