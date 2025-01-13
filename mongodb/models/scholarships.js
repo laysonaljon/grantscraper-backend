@@ -7,12 +7,12 @@ const scholarshipSchema = new Schema({
   deadline: { type: Date, required: true }, // Changed from application_deadline to deadline
   type: { 
     type: String, 
-    enum: ['athletic', 'merit', 'need-based', 'grant'], // Enum for scholarship types
+    enum: ['Athletic', 'Merit', 'Need-based', 'Grant'], // Enum for scholarship types
     required: true 
   },
   level: { 
     type: String, 
-    enum: ['basic education', 'college', 'masters', 'doctorate', 'vocational'], // Enum for education levels
+    enum: ['Basic Education', 'College', 'Masters', 'Doctorate', 'Vocational'], // Enum for education levels
     required: true 
   },
   eligibility: { type: [String], required: true }, // Array of eligibility criteria

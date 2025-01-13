@@ -5,7 +5,8 @@ const router = express.Router();
 
 // GET all scholarships with sorting and pagination
 router.route('/').get(async (req, res) => {
-  const { sort, page, limit } = req.query; // Default to page 1 and limit 10 if not provided
+  const { sort, page, limit, filters = {} } = req.query; // Default to page 1 and limit 10 if not provided
+  console.log('Request received:', { sort, page, limit, filters });
 
   // Define sorting options
   const sortOptions = {};
@@ -15,19 +16,37 @@ router.route('/').get(async (req, res) => {
       const key = field.startsWith('-') ? field.slice(1) : field;
       sortOptions[key] = field.startsWith('-') ? -1 : 1; // -1 for descending, 1 for ascending
     });
+    console.log('Sort options:', sortOptions);
   }
 
+  // Build filter object
+  const filterCriteria = {};
+  for (const key in filters) {
+    if (Array.isArray(filters[key])) {
+      filterCriteria[key] = { $in: filters[key].map(value => value.trim()) }; // Match any of the values in the array
+    } else {
+      filterCriteria[key] = filters[key].trim(); // Direct match for single values
+    }
+  }
+  
+  console.log('Filter criteria:', filterCriteria);
+
   try {
-    // Calculate total items and apply pagination
-    const totalItems = await Scholarships.countDocuments({ deleted_at: null });
-    const scholarships = await Scholarships.find({ deleted_at: null })
+    // Calculate total items based on filters
+    const totalItems = await Scholarships.countDocuments({ deleted_at: null, ...filterCriteria });
+    console.log('Total items matching filters:', totalItems);
+    
+    // Fetch scholarships with applied filters and pagination
+    const scholarships = await Scholarships.find({ deleted_at: null, ...filterCriteria })
       .sort(sortOptions)
       .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit));
 
+    console.log('Fetched scholarships:', scholarships);
+    
     // Calculate pagination details
     const totalPages = Math.ceil(totalItems / limit);
-    const currentItemsCount = Math.min(Number(page) * Number(limit), totalItems); // Total items sent so far
+    const currentItemsCount = scholarships.length; // Count of items returned
 
     res.status(200).json({
       items: scholarships,

@@ -78,78 +78,102 @@ You can view the scholarship details here: ${scholarshipLink}`;
 router.post('/recommend', async (req, res) => {
   try {
     // Fetch all users with their associated levels and types
-    const users = await Users.find({}, 'email levels types');
+    const users = await Users.find({}, 'email level type');
 
     if (users.length === 0) {
       return res.status(404).json({ message: 'No users found to send emails.' });
     }
 
     const processedEmails = new Set(); // Track unique emails
+    const userPreferences = {}; // To store aggregated preferences
 
-    // Define types to exclude from recommendations
-    const excludedTypes = ['athletic']; // Add any other types you want to exclude here
+    // Aggregate user preferences by email
+    users.forEach(user => {
+      const { email, level, type } = user;
+      if (!userPreferences[email]) {
+        userPreferences[email] = { levels: new Set(), types: new Set() };
+      }
+      userPreferences[email].levels.add(level);
+      userPreferences[email].types.add(type);
+    });
 
-    for (const user of users) {
-      const { email, levels, types } = user;
+    // Convert Sets to Arrays for each user
+    for (const email in userPreferences) {
+      userPreferences[email].levels = Array.from(userPreferences[email].levels);
+      userPreferences[email].types = Array.from(userPreferences[email].types);
+    }
+
+    for (const email in userPreferences) {
+      const { levels, types } = userPreferences[email]; // Get aggregated preferences
 
       // Skip if email has already been processed
       if (processedEmails.has(email)) {
         continue;
       }
 
-      // Log user email for debugging
+      // Log user email and preferences for debugging
       console.log(`Processing recommendations for: ${email}`);
-
-      // Ensure levels and types are arrays
-      const userLevels = Array.isArray(levels) ? levels : [];
-      const userTypes = Array.isArray(types) ? types : [];
+      console.log(`User Preferences - Levels: ${levels.length > 0 ? levels.join(', ') : 'None'}, Types: ${types.length > 0 ? types.join(', ') : 'None'}`);
 
       // Initialize recommendations
       let recommendedScholarships = [];
 
-      // 1. Scholarships matching both level and type
-      if (userLevels.length > 0 && userTypes.length > 0) {
-        const byLevelAndType = await Scholarships.find({
-          level: { $in: userLevels },
-          type: { $in: userTypes },
-          type: { $nin: excludedTypes } // Exclude unwanted types
-        });
-
-        // If we found scholarships that match both level and type, use these exclusively
-        if (byLevelAndType.length > 0) {
-          recommendedScholarships.push(...byLevelAndType);
+      // 1. Scholarships matching both levels and types
+      if (levels.length > 0 && types.length > 0) {
+        for (const level of levels) {
+          for (const type of types) {
+            const scholarships = await Scholarships.find({
+              level,
+              type
+            });
+            recommendedScholarships.push(...scholarships);
+          }
+        }
+        
+        // Log found scholarships
+        if (recommendedScholarships.length > 0) {
+          console.log(`Recommending scholarships matching both levels and types: ${recommendedScholarships.map(s => s.name).join(', ')}`);
         }
       }
 
-      // 2. If no scholarships match both level and type, get scholarships matching only levels
-      if (recommendedScholarships.length === 0 && userLevels.length > 0) {
-        const byLevels = await Scholarships.find({ 
-          level: { $in: userLevels },
-          type: { $nin: excludedTypes } // Exclude unwanted types
-        });
-        if (byLevels.length > 0) {
-          recommendedScholarships.push(...byLevels);
+      // 2. If no scholarships match both levels and types, get scholarships matching only levels
+      if (recommendedScholarships.length === 0 && levels.length > 0) {
+        for (const level of levels) {
+          const byLevel = await Scholarships.find({
+            level
+          });
+          recommendedScholarships.push(...byLevel);
+        }
+        
+        // Log found scholarships
+        if (recommendedScholarships.length > 0) {
+          console.log(`Recommending scholarships matching only levels: ${recommendedScholarships.map(s => s.name).join(', ')}`);
         }
       }
 
       // 3. If still no matches, get scholarships matching only types
-      if (recommendedScholarships.length === 0 && userTypes.length > 0) {
-        const byTypes = await Scholarships.find({ 
-          type: { $in: userTypes },
-          type: { $nin: excludedTypes } // Exclude unwanted types
-        });
-        if (byTypes.length > 0) {
-          recommendedScholarships.push(...byTypes);
+      if (recommendedScholarships.length === 0 && types.length > 0) {
+        for (const type of types) {
+          const byType = await Scholarships.find({
+            type
+          });
+          recommendedScholarships.push(...byType);
+        }
+        
+        // Log found scholarships
+        if (recommendedScholarships.length > 0) {
+          console.log(`Recommending scholarships matching only types: ${recommendedScholarships.map(s => s.name).join(', ')}`);
         }
       }
 
-      // 4. If no matches at all, recommend random scholarships excluding unwanted types
+      // 4. If no matches at all, recommend random scholarships
       if (recommendedScholarships.length === 0) {
         const randomScholarships = await Scholarships.aggregate([
-          { $match: { type: { $nin: excludedTypes } } }, // Exclude unwanted types
-          { $sample: { size: 5 } }
+          { $sample: { size: 5 } } // Randomly sample up to 5 scholarships
         ]);
         recommendedScholarships.push(...randomScholarships);
+
+        console.log(`Recommending random scholarships: ${randomScholarships.map(s => s.name).join(', ')}`);
       }
 
       // Remove duplicates based on scholarship ID using a Set
@@ -172,6 +196,7 @@ router.post('/recommend', async (req, res) => {
 
       recommendedScholarships.forEach(scholarship => {
         console.log(`Adding scholarship: ${scholarship.name} for ${email}`);
+        console.log(`Recommended Scholarship - Level: ${scholarship.level}, Type: ${scholarship.type}`);
         text += `${scholarship.name}\n${process.env.DASHBOARD}/${scholarship._id}\n\n`;
       });
 
