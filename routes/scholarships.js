@@ -16,8 +16,14 @@ router.route('/').get(async (req, res) => {
       const key = field.startsWith('-') ? field.slice(1) : field;
       sortOptions[key] = field.startsWith('-') ? -1 : 1; // -1 for descending, 1 for ascending
     });
-    console.log('Sort options:', sortOptions);
   }
+
+  // Add secondary sorting by name to ensure consistent order
+  if (!sortOptions.name) {
+    sortOptions.name = 1; // Ascending order by name
+  }
+
+  console.log('Sort options:', sortOptions);
 
   // Build filter object
   const filterCriteria = {};
@@ -46,12 +52,10 @@ router.route('/').get(async (req, res) => {
     
     // Calculate pagination details
     const totalPages = Math.ceil(totalItems / limit);
-    const currentItemsCount = scholarships.length; // Count of items returned
 
     res.status(200).json({
       items: scholarships,
       meta: {
-        current_items: currentItemsCount,
         current_page: Number(page),
         next_page: Number(page) < totalPages ? Number(page) + 1 : null,
         last_page: totalPages,
