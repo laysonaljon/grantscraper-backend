@@ -8,29 +8,6 @@ const router = express.Router();
 router.post('/subscribe', async (req, res) => {
   const { email, level, type, scholarship_id } = req.body;
 
-  // Log the request body for debugging
-  console.log('Request body:', req.body);
-
-  // Validate input
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    console.log('Invalid email address');
-    return res.status(400).json({ error: 'Invalid email address' });
-  }
-
-  if (!level || typeof level !== 'string') {
-    console.log('Invalid level');
-    return res.status(400).json({ error: 'Invalid level' });
-  }
-
-  if (!type || typeof type !== 'string') {
-    console.log('Invalid type');
-    return res.status(400).json({ error: 'Invalid type' });
-  }
-
-  if (!scholarship_id || typeof scholarship_id !== 'string') {
-    console.log('Invalid scholarship ID');
-    return res.status(400).json({ error: 'Invalid scholarship ID' });
-  }
 
   try {
     // Fetch scholarship details based on scholarship_id
@@ -47,8 +24,9 @@ router.post('/subscribe', async (req, res) => {
     let existingUser = await Users.findOne({ email, scholarship_id });
 
     if (existingUser) {
-      return res.status(400).json({ 
-        error: 'Email already favorited this scholarship!' 
+      return res.status(200).json({ 
+        type: 'error',
+        message: 'Email already favorited this scholarship!' 
       });
     }
 
@@ -56,7 +34,7 @@ router.post('/subscribe', async (req, res) => {
     const user = await Users.create({ email, scholarship_id, level, type });
     console.log('New user created:', user);
 
-    // Send an email
+    // Send an email only for new subscriptions
     const subject = 'Welcome to Our Platform!';
     const text = `Hi there, welcome! You have subscribed to the scholarship: ${scholarshipName}.
     
@@ -65,7 +43,8 @@ You can view the scholarship details here: ${scholarshipLink}`;
     console.log('Email sent successfully to:', email);
 
     res.status(201).json({
-      message: 'New user created and email sent successfully.',
+      type: 'success',
+      message: 'Subscription Successful',
       user,
     });
   } catch (error) {
@@ -73,7 +52,6 @@ You can view the scholarship details here: ${scholarshipLink}`;
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 router.post('/recommend', async (req, res) => {
   try {
@@ -111,10 +89,6 @@ router.post('/recommend', async (req, res) => {
         continue;
       }
 
-      // Log user email and preferences for debugging
-      console.log(`Processing recommendations for: ${email}`);
-      console.log(`User Preferences - Levels: ${levels.length > 0 ? levels.join(', ') : 'None'}, Types: ${types.length > 0 ? types.join(', ') : 'None'}`);
-
       // Initialize recommendations
       let recommendedScholarships = [];
 
@@ -129,11 +103,6 @@ router.post('/recommend', async (req, res) => {
             recommendedScholarships.push(...scholarships);
           }
         }
-        
-        // Log found scholarships
-        if (recommendedScholarships.length > 0) {
-          console.log(`Recommending scholarships matching both levels and types: ${recommendedScholarships.map(s => s.name).join(', ')}`);
-        }
       }
 
       // 2. If no scholarships match both levels and types, get scholarships matching only levels
@@ -143,11 +112,6 @@ router.post('/recommend', async (req, res) => {
             level
           });
           recommendedScholarships.push(...byLevel);
-        }
-        
-        // Log found scholarships
-        if (recommendedScholarships.length > 0) {
-          console.log(`Recommending scholarships matching only levels: ${recommendedScholarships.map(s => s.name).join(', ')}`);
         }
       }
 
@@ -159,11 +123,6 @@ router.post('/recommend', async (req, res) => {
           });
           recommendedScholarships.push(...byType);
         }
-        
-        // Log found scholarships
-        if (recommendedScholarships.length > 0) {
-          console.log(`Recommending scholarships matching only types: ${recommendedScholarships.map(s => s.name).join(', ')}`);
-        }
       }
 
       // 4. If no matches at all, recommend random scholarships
@@ -172,8 +131,6 @@ router.post('/recommend', async (req, res) => {
           { $sample: { size: 5 } } // Randomly sample up to 5 scholarships
         ]);
         recommendedScholarships.push(...randomScholarships);
-
-        console.log(`Recommending random scholarships: ${randomScholarships.map(s => s.name).join(', ')}`);
       }
 
       // Remove duplicates based on scholarship ID using a Set
@@ -203,7 +160,6 @@ router.post('/recommend', async (req, res) => {
       // Send the email
       try {
         await recommendEmail(email, subject, text);
-        console.log(`Email sent to: ${email}`);
         processedEmails.add(email); // Mark email as processed
       } catch (error) {
         console.error(`Failed to send email to: ${email}`, error);
@@ -216,13 +172,5 @@ router.post('/recommend', async (req, res) => {
     res.status(500).json({ error: 'Failed to send emails to users.' });
   }
 });
-
-
-
-
-
-
-
-
 
 export default router;

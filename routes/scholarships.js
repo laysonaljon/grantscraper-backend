@@ -6,7 +6,6 @@ const router = express.Router();
 // GET all scholarships with sorting and pagination
 router.route('/').get(async (req, res) => {
   const { sort, page, limit, filters = {} } = req.query; // Default to page 1 and limit 10 if not provided
-  console.log('Request received:', { sort, page, limit, filters });
 
   // Define sorting options
   const sortOptions = {};
@@ -23,8 +22,6 @@ router.route('/').get(async (req, res) => {
     sortOptions.name = 1; // Ascending order by name
   }
 
-  console.log('Sort options:', sortOptions);
-
   // Build filter object
   const filterCriteria = {};
   for (const key in filters) {
@@ -34,21 +31,15 @@ router.route('/').get(async (req, res) => {
       filterCriteria[key] = filters[key].trim(); // Direct match for single values
     }
   }
-  
-  console.log('Filter criteria:', filterCriteria);
 
   try {
     // Calculate total items based on filters
     const totalItems = await Scholarships.countDocuments({ deleted_at: null, ...filterCriteria });
-    console.log('Total items matching filters:', totalItems);
-    
     // Fetch scholarships with applied filters and pagination
     const scholarships = await Scholarships.find({ deleted_at: null, ...filterCriteria })
       .sort(sortOptions)
       .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit));
-
-    console.log('Fetched scholarships:', scholarships);
     
     // Calculate pagination details
     const totalPages = Math.ceil(totalItems / limit);
@@ -149,6 +140,33 @@ router.get('/:scholarshipId', async (req, res) => {
   } catch (error) {
     console.error(`Error fetching scholarship with ID ${scholarshipId}:`, error);
     res.status(500).json({ message: 'Error fetching scholarship details', error: error.message });
+  }
+});
+
+// DELETE endpoint to soft delete scholarships with past deadlines
+router.delete('/delete-expired', async (req, res) => {
+  try {
+    const today = new Date(); // Get today's date
+    const result = await Scholarships.updateMany(
+      {
+        deadline: { $lt: today }, // Match scholarships with deadlines before today
+        deleted_at: null // Ensure we only consider non-deleted scholarships
+      },
+      {
+        $set: { deleted_at: new Date() } // Set deleted_at to current date
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: 'No expired scholarships found.' });
+    }
+
+    res.status(200).json({
+      message: `${result.modifiedCount} expired scholarship(s) marked as deleted successfully.`,
+    });
+  } catch (error) {
+    console.error('Error marking expired scholarships as deleted:', error);
+    res.status(500).json({ message: 'Error marking expired scholarships as deleted', error: error.message });
   }
 });
 
