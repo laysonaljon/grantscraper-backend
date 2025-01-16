@@ -42,9 +42,9 @@ You can view the scholarship details here: ${scholarshipLink}`;
     await subscribeEmail(email, subject, text);
     console.log('Email sent successfully to:', email);
 
-    res.status(201).json({
+    res.status(200).json({
       type: 'success',
-      message: 'Subscription Successful',
+      message: 'Subscription Successful!',
       user,
     });
   } catch (error) {
