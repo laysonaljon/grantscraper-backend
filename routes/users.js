@@ -13,7 +13,6 @@ router.post('/subscribe', async (req, res) => {
     // Fetch scholarship details based on scholarship_id
     const scholarship = await Scholarships.findById(scholarship_id);
     if (!scholarship) {
-      console.log('Scholarship not found');
       return res.status(404).json({ error: 'Scholarship not found' });
     }
 
@@ -32,15 +31,7 @@ router.post('/subscribe', async (req, res) => {
 
     // Create a new user record if no existing user found with the same email and scholarship_id
     const user = await Users.create({ email, scholarship_id, level, type });
-    console.log('New user created:', user);
-
-    // Send an email only for new subscriptions
-    const subject = 'Welcome to Our Platform!';
-    const text = `Hi there, welcome! You have subscribed to the scholarship: ${scholarshipName}.
-    
-You can view the scholarship details here: ${scholarshipLink}`;
-    await subscribeEmail(email, subject, text);
-    console.log('Email sent successfully to:', email);
+    await subscribeEmail(email, 'Welcome to Our Platform!', scholarshipName, scholarshipLink);
 
     res.status(200).json({
       type: 'success',
@@ -147,23 +138,8 @@ router.post('/recommend', async (req, res) => {
       // Limit to a maximum of 5 scholarships
       recommendedScholarships = recommendedScholarships.slice(0, 5);
 
-      // Compose the email body with the scholarship recommendations
-      const subject = 'Scholarship Recommendations Just for You!';
-      let text = `Hi there, here are some scholarships you might like based on your preferences:\n\n`;
-
-      recommendedScholarships.forEach(scholarship => {
-        console.log(`Adding scholarship: ${scholarship.name} for ${email}`);
-        console.log(`Recommended Scholarship - Level: ${scholarship.level}, Type: ${scholarship.type}`);
-        text += `${scholarship.name}\n${process.env.DASHBOARD}/${scholarship._id}\n\n`;
-      });
-
-      // Send the email
-      try {
-        await recommendEmail(email, subject, text);
-        processedEmails.add(email); // Mark email as processed
-      } catch (error) {
-        console.error(`Failed to send email to: ${email}`, error);
-      }
+      await recommendEmail(email, 'Scholarship Recommendations Just for You!', recommendedScholarships);
+      processedEmails.add(email);
     }
 
     res.status(200).json({ message: 'Emails sent successfully to all users.' });
