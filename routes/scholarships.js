@@ -1,5 +1,6 @@
 import express from 'express';
 import Scholarships from '../mongodb/models/scholarships.js';
+import runScraper from '../scraper/index.js';
 
 const router = express.Router();
 
@@ -144,7 +145,7 @@ router.get('/:scholarshipId', async (req, res) => {
 });
 
 // DELETE endpoint to soft delete scholarships with past deadlines
-router.delete('/delete-expired', async (req, res) => {
+router.delete('/delete-outdated', async (req, res) => {
   try {
     const today = new Date(); // Get today's date
     const result = await Scholarships.updateMany(
@@ -169,5 +170,148 @@ router.delete('/delete-expired', async (req, res) => {
     res.status(500).json({ message: 'Error marking expired scholarships as deleted', error: error.message });
   }
 });
+
+// Endpoint to run the scraper and conditional save
+router.post('/run-scraper', async (req, res) => {
+  try {
+    const scrapedData = await runScraper();
+
+    // Fetch all scholarships (active and soft-deleted)
+    const allScholarships = await Scholarships.find();
+    const activeScholarships = allScholarships.filter(scholarship => !scholarship.deleted_at);
+
+    // Create a map for active scholarships for efficient lookup
+    const activeScholarshipsMap = activeScholarships.reduce((map, scholarship) => {
+      map[`${scholarship.name}|${scholarship.deadline}`] = scholarship;
+      return map;
+    }, {});
+
+    // Separate ongoing and non-ongoing scholarships
+    const ongoingScraped = scrapedData.filter(scholarship => scholarship.deadline === 'Ongoing');
+    const incomingScraped = scrapedData.filter(scholarship => scholarship.deadline !== 'Ongoing');
+
+    // Track added and similar scholarships
+    const addedScholarships = [];
+    const similarScholarships = [];
+
+    // Function to compare two scholarships for equality (excluding name and deadline)
+    const compareScholarships = (existing, incoming) => {
+      return (
+        existing.description === incoming.description &&
+        existing.type === incoming.type &&
+        existing.level === incoming.level &&
+        JSON.stringify(existing.eligibility) === JSON.stringify(incoming.eligibility) &&
+        JSON.stringify(existing.benefits) === JSON.stringify(incoming.benefits) &&
+        JSON.stringify(existing.requirements) === JSON.stringify(incoming.requirements) &&
+        JSON.stringify(existing.source) === JSON.stringify(incoming.source) &&
+        JSON.stringify(existing.misc) === JSON.stringify(incoming.misc)
+      );
+    };
+
+    // Handle ongoing scholarships
+    const newOngoingScholarships = ongoingScraped.filter(scholarship => {
+      const activeScholarship = activeScholarshipsMap[`${scholarship.name}|${scholarship.deadline}`];
+
+      if (activeScholarship) {
+        // If the existing scholarship has the same name and deadline but fields differ, we soft delete it
+        if (!compareScholarships(activeScholarship, scholarship)) {
+          // Soft delete the existing scholarship
+          activeScholarship.deleted_at = new Date();
+          activeScholarship.save();
+
+          return true;  // Mark this scholarship for insertion
+        }
+        // If no changes, consider it similar
+        similarScholarships.push(scholarship);
+        return false;
+      }
+
+      return true;  // If no match exists, insert the incoming scholarship
+    });
+
+    if (newOngoingScholarships.length) {
+      addedScholarships.push(...newOngoingScholarships);
+      await Scholarships.insertMany(newOngoingScholarships);
+    }
+
+    // Remove ongoing scholarships no longer in the source
+    const ongoingNames = ongoingScraped.map(s => `${s.name}|${s.deadline}`);
+    const removedOngoingScholarships = activeScholarships.filter(scholarship => {
+      return scholarship.deadline === 'Ongoing' && !ongoingNames.includes(`${scholarship.name}|${scholarship.deadline}`);
+    });
+
+    if (removedOngoingScholarships.length) {
+      await Scholarships.updateMany(
+        { _id: { $in: removedOngoingScholarships.map(s => s._id) } },
+        { $set: { deleted_at: new Date() } }
+      );
+    }
+
+    // Handle incoming scholarships (non-ongoing)
+    const newIncomingScholarships = incomingScraped.filter(scholarship => {
+      const activeScholarship = activeScholarshipsMap[`${scholarship.name}|${scholarship.deadline}`];
+
+      if (activeScholarship) {
+        // If the existing scholarship has the same name and deadline but fields differ, we soft delete it
+        if (!compareScholarships(activeScholarship, scholarship)) {
+          // Soft delete the existing scholarship
+          activeScholarship.deleted_at = new Date();
+          activeScholarship.save();
+
+          return true;  // Mark this scholarship for insertion
+        }
+        // If no changes, consider it similar
+        similarScholarships.push(scholarship);
+        return false;
+      }
+
+      return true;  // If no match exists, insert the incoming scholarship
+    });
+
+    if (newIncomingScholarships.length) {
+      addedScholarships.push(...newIncomingScholarships);
+      await Scholarships.insertMany(newIncomingScholarships);
+    }
+
+    // Remove incoming scholarships no longer in the source
+    const incomingEntries = incomingScraped.map(s => `${s.name}|${s.deadline}`);
+    const removedIncomingScholarships = activeScholarships.filter(scholarship => {
+      return (
+        scholarship.deadline !== 'Ongoing' &&
+        !incomingEntries.includes(`${scholarship.name}|${scholarship.deadline}`)
+      );
+    });
+
+    if (removedIncomingScholarships.length) {
+      await Scholarships.updateMany(
+        { _id: { $in: removedIncomingScholarships.map(s => s._id) } },
+        { $set: { deleted_at: new Date() } }
+      );
+    }
+
+    // Logs
+    const similarCount = similarScholarships.length;
+    const addedCount = addedScholarships.length;
+    const removedCount = removedOngoingScholarships.length + removedIncomingScholarships.length;
+
+    console.log(`Similar scholarships (not inserted): ${similarCount}`);
+    console.log(`Scholarships added: ${addedScholarships.map(s => s.name).join(', ')}`);
+    console.log(`Scholarships removed: ${removedOngoingScholarships.concat(removedIncomingScholarships).map(s => s.name).join(', ')}`);
+
+    res.status(200).json({
+      message: 'Scraper ran successfully',
+      details: {
+        similarScholarships: similarCount,
+        addedScholarships: addedScholarships.map(s => s.name),
+        removedScholarships: removedOngoingScholarships.concat(removedIncomingScholarships).map(s => s.name),
+      },
+    });
+  } catch (error) {
+    console.error('Error running scraper:', error);
+    res.status(500).json({ message: 'Error running scraper', error: error.message });
+  }
+});
+
+
 
 export default router;

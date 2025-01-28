@@ -8,16 +8,12 @@ const router = express.Router();
 router.post('/subscribe', async (req, res) => {
   const { email, level, type, scholarship_id } = req.body;
 
-
   try {
     // Fetch scholarship details based on scholarship_id
     const scholarship = await Scholarships.findById(scholarship_id);
     if (!scholarship) {
       return res.status(404).json({ error: 'Scholarship not found' });
     }
-
-    const scholarshipName = scholarship.name;
-    const scholarshipLink = `${process.env.DASHBOARD}/${scholarship_id}`;
 
     // Check if the user already exists with the same email and scholarship_id
     let existingUser = await Users.findOne({ email, scholarship_id });
@@ -31,7 +27,7 @@ router.post('/subscribe', async (req, res) => {
 
     // Create a new user record if no existing user found with the same email and scholarship_id
     const user = await Users.create({ email, scholarship_id, level, type });
-    await subscribeEmail(email, 'Welcome to Our Platform!', scholarshipName, scholarshipLink);
+    await subscribeEmail(email, 'Welcome to Our Platform!', scholarship);
 
     res.status(200).json({
       type: 'success',
@@ -89,7 +85,8 @@ router.post('/recommend', async (req, res) => {
           for (const type of types) {
             const scholarships = await Scholarships.find({
               level,
-              type
+              type,
+              deleted_at: null // Exclude soft-deleted scholarships
             });
             recommendedScholarships.push(...scholarships);
           }
