@@ -147,15 +147,18 @@ router.get('/:scholarshipId', async (req, res) => {
 // DELETE endpoint to soft delete scholarships with past deadlines
 router.delete('/delete-outdated', async (req, res) => {
   try {
-    const today = new Date(); // Get today's date
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0); // Ensure we compare only the date part
+
     const result = await Scholarships.updateMany(
       {
-        deadline: { $lt: today }, // Match scholarships with deadlines before today
-        deleted_at: null // Ensure we only consider non-deleted scholarships
+        $or: [
+          { deadline: { $lt: today.toISOString() } }, // Match past deadlines strictly
+          { deadline: 'Passed' } // Match scholarships with deadline as 'Passed'
+        ],
+        deleted_at: null // Ensure we only update non-deleted records
       },
-      {
-        $set: { deleted_at: new Date() } // Set deleted_at to current date
-      }
+      { $set: { deleted_at: new Date().toISOString() } } // Soft delete with UTC timestamp
     );
 
     if (result.matchedCount === 0) {
@@ -167,7 +170,10 @@ router.delete('/delete-outdated', async (req, res) => {
     });
   } catch (error) {
     console.error('Error marking expired scholarships as deleted:', error);
-    res.status(500).json({ message: 'Error marking expired scholarships as deleted', error: error.message });
+    res.status(500).json({
+      message: 'Error marking expired scholarships as deleted',
+      error: error.message,
+    });
   }
 });
 
@@ -312,6 +318,17 @@ router.post('/run-scraper', async (req, res) => {
   }
 });
 
+
+// Tester endpoint for scraper
+// router.post('/run-tester', async (req, res) => {
+//   try {
+//     const scholarshipsData = await scrapeUnifast(); 
+//     res.status(200).json(scholarshipsData); // Return the scraped data in response
+//   } catch (error) {
+//     console.error('Error running scraper:', error);
+//     res.status(500).json({ message: 'Error running scraper', error: error.message });
+//   }
+// });
 
 
 export default router;

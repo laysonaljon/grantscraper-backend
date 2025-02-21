@@ -1,6 +1,8 @@
-import careersFilipino from './careersFilipino.js';
 import scrapeTesa from './tesda.js';
 import scrapeUnifast from './unifast.js';
+import philscholar from './philscholar.js';
+import scrapeHAU from './hau.js';
+import scrapeUPDOICA from './updOICA.js';
 
 const runScraper = async () => {
   try {
@@ -10,6 +12,9 @@ const runScraper = async () => {
     const results = await Promise.all([
       scrapeTesa(),
       scrapeUnifast(),
+      scrapeUPDOICA(),
+      scrapeHAU(),
+      philscholar(),
     ]);
 
     // Combine results into a single array

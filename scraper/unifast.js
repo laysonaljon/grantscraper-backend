@@ -8,7 +8,11 @@ const scrapeUnifast = async () => {
     const unifastData = [];
 
     try {
-        const html = await request(pageURL);
+        // Option to bypass the certificate verification. Use with caution.
+        const html = await request({
+            uri: pageURL,
+            rejectUnauthorized: false, // This line bypasses the SSL certificate verification
+        });
         const $ = cheerio.load(html);
 
         // Function to clean text by replacing newlines with a single space
@@ -106,4 +110,4 @@ const scrapeUnifast = async () => {
     }
 };
 
-export default scrapeUnifast;
+export default scrapeUnifast

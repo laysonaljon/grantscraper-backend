@@ -1,8 +1,8 @@
 import cron from 'node-cron';
-import axios from 'axios'; // Ensure you have axios installed
+import axios from 'axios';
 import dotenv from 'dotenv';
 
-dotenv.config(); // Load environment variables from .env file
+dotenv.config();
 
 // Function to trigger the /recommend endpoint
 const sendRecommendations = async () => {
