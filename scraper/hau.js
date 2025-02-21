@@ -31,28 +31,24 @@ const scrapeHAU = async () => {
         });
 
         const $ = cheerio.load(html);
-
         let scholarships = [];
         let level = 'College'; // Default level
 
-        // Process sections in order
         $('p.default-text-color.primary-font.bold.mt-20.text-uppercase').each((i, header) => {
             const sectionTitle = $(header).text().trim();
             if (sectionTitle === 'Senior High School') {
                 level = 'Basic Education';
             }
 
-            // Find scholarship tab links within this section
             const tabContainer = $(header).next('.nav-tabs-wrapper');
             tabContainer.find('.nav-tabs a[data-toggle="tab"]').each((index, element) => {
                 const anchor = $(element);
-                const name = anchor.text().trim();
+                let name = anchor.text().trim();
                 const tabId = anchor.attr('href');
 
                 if (name && tabId && tabId.startsWith('#')) {
                     const tabContent = tabContainer.find(tabId);
 
-                    // Extract and format description from <p> and lists <ul>/<ol>
                     let description = "";
                     let foundRequirements = false;
                     let benefits = [];
@@ -62,18 +58,14 @@ const scrapeHAU = async () => {
                         const textContent = $(elem).text().trim();
 
                         if (tag === "P" && !textContent.toLowerCase().includes("requirements:")) {
-                            if (description) description += "\n"; // Separate paragraphs
+                            if (description) description += "\n";
                             description += textContent;
-                        }
-
-                        else if ((tag === "UL" || tag === "OL") && !foundRequirements) {
+                        } else if ((tag === "UL" || tag === "OL") && !foundRequirements) {
                             let formattedList = [];
                             $(elem).find("li").each((_, li) => {
-                                const listItem = $(li).text().trim();
-                                formattedList.push(listItem);
+                                formattedList.push($(li).text().trim());
                             });
 
-                            // If the list is a list of benefits, store separately
                             if (description === "") {
                                 benefits = [...formattedList];
                             } else {
@@ -86,40 +78,34 @@ const scrapeHAU = async () => {
                         }
                     });
 
-                    // Extract eligibility (eligibility) from <td> containing "eligibility:"
                     const eligibility = [];
                     tabContent.find('td:contains("eligibility:")').next('td').find('li').each((_, li) => {
                         eligibility.push($(li).text().trim());
                     });
 
-                    // Extract eligibility from the specified table structure
-                    let qualificationTdFound = false;  // Flag to ensure we only process the FIRST td with the style
+                    let qualificationTdFound = false;
                     tabContent.find('td[style="width: 48.527%;"]').each((index, td) => {
-                        if (!qualificationTdFound) {  // Check if we've already processed the qualification TD
+                        if (!qualificationTdFound) {
                             const ul = $(td).find('ul');
                             if (ul.length) {
                                 ul.find('li').each((_, li) => {
                                     eligibility.push($(li).text().trim());
                                 });
-                                qualificationTdFound = true; // Set the flag to prevent further processing
+                                qualificationTdFound = true;
                             }
                         }
                     });
 
-                    // Extract requirements from <td> containing "REQUIREMENTS:"
                     const requirements = [];
                     tabContent.find('td:contains("REQUIREMENTS:")').next('td').find('li').each((_, li) => {
                         requirements.push($(li).text().trim());
                     });
 
-                    // Alternative requirement extraction from other formats
                     tabContent.find('p:contains("REQUIREMENTS:"), p:contains("Requirements:")').next('ol').find('li').each((_, li) => {
                         requirements.push($(li).text().trim());
                     });
 
-                    // Extract requirements from the specified table structure
                     let requirementTdFound = false;
-
                     tabContent.find('td[style="width: 48.527%;"]').each((index, td) => {
                         if (qualificationTdFound && !requirementTdFound) {
                             const ol = $(td).find('ol');
@@ -128,28 +114,28 @@ const scrapeHAU = async () => {
                                     requirements.push($(li).text().trim());
                                 });
                                 requirementTdFound = true;
-
                             }
                         }
                     });
 
-                    // Identify Type
                     const type = identifyType(`${name} ${description} ${requirements} ${eligibility.join(' ')}`);
 
-                    scholarships.push({
-                        name,
-                        description,
-                        eligibility,
-                        requirements,
-                        benefits,
-                        deadline: 'Ongoing',
-                        level,
-                        type,
-                        source: {
-                            link: pageURL,
-                            site: 'HAU Scholarships & Grants'
-                        }
-                    });
+                    if (description || eligibility.length || requirements.length || benefits.length) {
+                        scholarships.push({
+                            name: name.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase()),
+                            description,
+                            eligibility,
+                            requirements,
+                            benefits,
+                            deadline: 'Ongoing',
+                            level,
+                            type,
+                            source: {
+                                link: pageURL,
+                                site: 'HAU Scholarships & Grants'
+                            }
+                        });
+                    }
                 }
             });
         });
