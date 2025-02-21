@@ -89,7 +89,7 @@ const scrapeUPDOICA = async () => {
                             if ($ul.length) {  // Check if a UL exists
                                 $ul.find('li').each((_, li) => {
                                     const $li = $grant(li);
-                                    let text = $li.html().trim().replace(/<strong>/g, '').replace(/<\/strong>/g, '').replace(/<u>/g, '').replace(/<\/u>/g, '');
+                                    let text = $li.html().trim().replace(/<strong>|<\/strong>|<u>|<\/u>|<em>|<\/em>/g, '') // Remove strong, underline, and emphasis tags
                                     text = text.replace(/<br\s*\/?>/gi, '\n').replace(/\s+/g, ' ').trim();
                                     if (!/<ul>[\s\S]*?<\/ul>/gi.test(text)) {
                                         items.push(text);
@@ -107,7 +107,7 @@ const scrapeUPDOICA = async () => {
                                     $ol.children('li').each((_, li) => { // Get direct <li> children
                                         const $li = $grant(li);
                                         let text = $li.html().trim()
-                                            .replace(/<strong>|<\/strong>|<u>|<\/u>/g, '') // Remove strong and underline tags
+                                            .replace(/<strong>|<\/strong>|<u>|<\/u>|<em>|<\/em>/g, '') // Remove strong and underline tags
                                             .replace(/<br\s*\/?>/gi, '\n') // Convert <br> to newline
                                             .replace(/\s+/g, ' ') // Normalize spaces
                                             .trim();
@@ -127,7 +127,7 @@ const scrapeUPDOICA = async () => {
                                 let liHtml = $li.html().trim();
                 
                                 // Clean up the HTML (optional, but recommended)
-                                liHtml = liHtml.replace(/<strong>|<\/strong>|<u>|<\/u>/g, ''); // Remove formatting tags
+                                liHtml = liHtml.replace(/<strong>|<\/strong>|<u>|<\/u>|<em>|<\/em>/g, '') // Remove formatting tags
                                 liHtml = liHtml.replace(/\s+/g, ' '); // Normalize spaces
                 
                 
