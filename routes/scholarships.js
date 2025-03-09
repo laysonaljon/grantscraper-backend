@@ -1,6 +1,7 @@
 import express from 'express';
 import Scholarships from '../mongodb/models/scholarships.js';
 import runScraper from '../scraper/index.js';
+import philscholar from '../scraper/philscholar.js';
 
 const router = express.Router();
 
@@ -186,15 +187,43 @@ router.post('/run-scraper', async (req, res) => {
     const allScholarships = await Scholarships.find();
     const activeScholarships = allScholarships.filter(scholarship => !scholarship.deleted_at);
 
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Identify scholarships with past deadlines or marked as "Passed"
+    const expiredScholarships = activeScholarships.filter(scholarship => {
+      return (
+        scholarship.deadline === "Passed" ||
+        (scholarship.deadline !== "Ongoing" && scholarship.deadline <= todayStr) // Use <= to include today's date
+      );
+    });
+
+    // Soft-delete expired scholarships
+    if (expiredScholarships.length) {
+      await Scholarships.updateMany(
+        { _id: { $in: expiredScholarships.map(s => s._id) } },
+        { $set: { deleted_at: new Date() } }
+      );
+    }
+
+    // Filter out expired or "Passed" scholarships from the scraped data
+    const validScrapedData = scrapedData.filter(scholarship => {
+      return (
+        scholarship.deadline !== "Passed" &&
+        (scholarship.deadline === "Ongoing" || scholarship.deadline > todayStr)
+      );
+    });
+
     // Create a map for active scholarships for efficient lookup
     const activeScholarshipsMap = activeScholarships.reduce((map, scholarship) => {
       map[`${scholarship.name}|${scholarship.deadline}`] = scholarship;
       return map;
     }, {});
 
-    // Separate ongoing and non-ongoing scholarships
-    const ongoingScraped = scrapedData.filter(scholarship => scholarship.deadline === 'Ongoing');
-    const incomingScraped = scrapedData.filter(scholarship => scholarship.deadline !== 'Ongoing');
+    // Separate ongoing and non-ongoing scholarships from the valid scraped data
+    const ongoingScraped = validScrapedData.filter(scholarship => scholarship.deadline === 'Ongoing');
+    const incomingScraped = validScrapedData.filter(scholarship => scholarship.deadline !== 'Ongoing');
 
     // Track added and similar scholarships
     const addedScholarships = [];
@@ -280,12 +309,9 @@ router.post('/run-scraper', async (req, res) => {
     }
 
     // Remove incoming scholarships no longer in the source
-    const incomingEntries = incomingScraped.map(s => `${s.name}|${s.deadline}`);
+    const incomingNames = incomingScraped.map(s => `${s.name}|${s.deadline}`);
     const removedIncomingScholarships = activeScholarships.filter(scholarship => {
-      return (
-        scholarship.deadline !== 'Ongoing' &&
-        !incomingEntries.includes(`${scholarship.name}|${scholarship.deadline}`)
-      );
+      return scholarship.deadline !== 'Ongoing' && !incomingNames.includes(`${scholarship.name}|${scholarship.deadline}`);
     });
 
     if (removedIncomingScholarships.length) {
@@ -295,40 +321,32 @@ router.post('/run-scraper', async (req, res) => {
       );
     }
 
-    // Logs
-    const similarCount = similarScholarships.length;
-    const addedCount = addedScholarships.length;
-    const removedCount = removedOngoingScholarships.length + removedIncomingScholarships.length;
-
-    console.log(`Similar scholarships (not inserted): ${similarCount}`);
-    console.log(`Scholarships added: ${addedScholarships.map(s => s.name).join(', ')}`);
-    console.log(`Scholarships removed: ${removedOngoingScholarships.concat(removedIncomingScholarships).map(s => s.name).join(', ')}`);
-
+    // Send response
     res.status(200).json({
-      message: 'Scraper ran successfully',
-      details: {
-        similarScholarships: similarCount,
-        addedScholarships: addedScholarships.map(s => s.name),
-        removedScholarships: removedOngoingScholarships.concat(removedIncomingScholarships).map(s => s.name),
-      },
+      message: 'Scraper run successfully',
+      added: addedScholarships.length,
+      similar: similarScholarships.length,
+      expired: expiredScholarships.length,
+      removedOngoing: removedOngoingScholarships.length,
+      removedIncoming: removedIncomingScholarships.length,
     });
   } catch (error) {
     console.error('Error running scraper:', error);
-    res.status(500).json({ message: 'Error running scraper', error: error.message });
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
 
 // Tester endpoint for scraper
-// router.post('/run-tester', async (req, res) => {
-//   try {
-//     const scholarshipsData = await scrapeUnifast(); 
-//     res.status(200).json(scholarshipsData); // Return the scraped data in response
-//   } catch (error) {
-//     console.error('Error running scraper:', error);
-//     res.status(500).json({ message: 'Error running scraper', error: error.message });
-//   }
-// });
+router.post('/run-tester', async (req, res) => {
+  try {
+    const scholarshipsData = await philscholar(); 
+    res.status(200).json(scholarshipsData); // Return the scraped data in response
+  } catch (error) {
+    console.error('Error running scraper:', error);
+    res.status(500).json({ message: 'Error running scraper', error: error.message });
+  }
+});
 
 
 export default router;
