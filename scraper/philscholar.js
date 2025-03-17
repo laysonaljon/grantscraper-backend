@@ -241,24 +241,7 @@ const philscholar = async (testMode = false) => {
             const seenUrls = new Set();  // Set to track unique URLs
 
             // Find all anchor tags
-            scholarship$('a').each((_, element) => {
-            const el = scholarship$(element);
-            const linkText = el.text().toLowerCase();  // Convert text to lowercase for case-insensitive matching
-            const linkUrl = el.attr('href');
-
-            // Check if the link text contains the word "form"
-            // Exclude links with "form" in the text that are not application forms
-            if (linkText.includes('form') && linkUrl && !seenUrls.has(linkUrl) && !linkUrl.startsWith('#')) {
-                // Ignore certain non-form links that contain "form" but are not actual forms
-                if (linkText.includes("information disclaimer")) return;
-
-                misc.push({
-                type: "Application Form",  // Type for form links
-                data: linkUrl              // URL from the href attribute
-                });
-                seenUrls.add(linkUrl);  // Add URL to the set to track it
-            }
-            });
+ 
 
             // Extract misc buttons (from wp-block-button__link elements)
             scholarship$('.wp-block-button__link').each((_, element) => {
@@ -270,8 +253,8 @@ const philscholar = async (testMode = false) => {
             // Only add to misc if the link and text exist and the URL has not been seen
             if (linkUrl && buttonText && !seenUrls.has(linkUrl)) {
                 misc.push({
-                link: linkUrl,     // URL of the link
-                text: buttonText   // Text inside the button
+                type: buttonText, // Text inside the button
+                data: linkUrl  // URL of the link 
                 });
                 seenUrls.add(linkUrl);  // Add URL to the set to track it
             }

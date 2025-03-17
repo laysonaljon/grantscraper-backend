@@ -1,9 +1,11 @@
 import scrapeDataJob from './crons/scrapeData.js';
 import sendRecommendations from './crons/sendRecommendations.js';
+import deleteOudated from './crons/deleteOutdated.js';
 
 const initializeCronJobs = () => {
-  // scrapeDataJob(); disable scraping temp
-  // sendRecommendations();
+  scrapeDataJob();
+  sendRecommendations();
+  deleteOudated();
 };
 
 export default initializeCronJobs;

@@ -21,10 +21,10 @@ const sendRecommendations = async () => {
         });
     }
 };
-// commented to stop cron
-// cron.schedule('*/50 * * * * *', async () => {
-//     console.log('Cron job triggered: Triggering /recommend endpoint...');
-//     await sendRecommendations();
-// });
+
+cron.schedule('0 15 9 * * *', async () => {
+    console.log(`Cron job triggered: Triggering /recommend endpoint...`, new Date().toLocaleString());
+    await sendRecommendations();
+});
 
 export default sendRecommendations;

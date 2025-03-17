@@ -1,4 +1,4 @@
-import scrapeTesa from './tesda.js';
+import scrapeTesda from './tesda.js';
 import scrapeUnifast from './unifast.js';
 import philscholar from './philscholar.js';
 import scrapeHAU from './hau.js';
@@ -10,10 +10,10 @@ const runScraper = async () => {
 
     // Run all scrapers in parallel
     const results = await Promise.all([
-      scrapeTesa(),
-      scrapeUnifast(),
-      scrapeUPDOICA(),
-      scrapeHAU(),
+      // scrapeTesda(),
+      // scrapeUnifast(),
+      // scrapeUPDOICA(),
+      // scrapeHAU(),
       philscholar(),
     ]);
 

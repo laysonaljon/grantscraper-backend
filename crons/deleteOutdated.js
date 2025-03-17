@@ -21,8 +21,8 @@ const deleteOudated = async () => {
 }
 
 // commented to stop cron
-cron.schedule('*/50 * * * * *', async () => {
-    console.log('Cron job triggered: Triggering /delete-outdated endpoint...');
+cron.schedule('0 0 1 * * *', async () => {
+    console.log(`Cron job triggered: Triggering /delete-outdated endpoint...`, new Date().toLocaleString());
     await deleteOudated();
 });
 
