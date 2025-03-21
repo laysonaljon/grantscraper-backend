@@ -19,7 +19,7 @@ app.use('/api/v1/scholarships', scholarships);
 
 app.use('/api/v1/users', users);
 
-// initializeCronJobs();
+ initializeCronJobs();
 
 app.get('/', async (req, res) => {
     res.status(200).json({

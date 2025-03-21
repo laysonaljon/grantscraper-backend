@@ -14,14 +14,14 @@ const deleteOudated = async () => {
         console.log('Delete Outdated Endpoint triggered successfully:', response.data);
     } catch (error) {
         console.error('Error triggering the /delete-outdated endpoint: ', {
-            message: apiUrl,
+            message: 'apiUrl',
             stack: error.stack,
         });
     }
 }
 
 // commented to stop cron
-cron.schedule('0 0 1 * * *', async () => {
+cron.schedule('0 0 5 * * *', async () => {
     console.log(`Cron job triggered: Triggering /delete-outdated endpoint...`, new Date().toLocaleString());
     await deleteOudated();
 });
