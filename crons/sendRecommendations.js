@@ -12,8 +12,6 @@ const sendRecommendations = async () => {
         const apiUrl = `${process.env.API}/users/recommend`;
         
         const response = await axios.post(apiUrl);
-
-        console.log('Recommendations triggered successfully:', response.data);
     } catch (error) {
         console.error('Error triggering the /recommend endpoint: ', {
             message: apiUrl,
