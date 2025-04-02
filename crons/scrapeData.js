@@ -8,7 +8,7 @@ export const scrapeDataJob = async () => {
   try {
     const apiUrl = `${process.env.API}/scholarships/run-tester`;
     const response = await axios.post(apiUrl);
-    console.log('Recommendations triggered successfully:', response.data);
+    console.log('Scraping triggered successfully');
   } catch (error) {
     console.error('Error in scrapeDataJob:', {
       message: error.message,

@@ -10,8 +10,8 @@ const sendRecommendations = async () => {
     try {
         // Use the API base URL from environment variables
         const apiUrl = `${process.env.API}/users/recommend`;
-        
-        const response = await axios.post(apiUrl);
+        await axios.post(apiUrl);
+        console.log('Recommendations triggered successfully:', new Date().toLocaleString() );
     } catch (error) {
         console.error('Error triggering the /recommend endpoint: ', {
             message: apiUrl,

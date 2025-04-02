@@ -339,13 +339,14 @@ router.post('/run-scraper', async (req, res) => {
 
 // Tester endpoint for scraper
 router.post('/run-tester', async (req, res) => {
-  try {
-    const scholarshipsData = await philscholar(); 
-    res.status(200).json(scholarshipsData); // Return the scraped data in response
-  } catch (error) {
-    console.error('Error running scraper:', error);
-    res.status(500).json({ message: 'Error running scraper', error: error.message });
-  }
+//   try {
+//     const scholarshipsData = await philscholar(); 
+//     res.status(200).json(scholarshipsData); // Return the scraped data in response
+//   } catch (error) {
+//     console.error('Error running scraper:', error);
+//     res.status(500).json({ message: 'Error running scraper', error: error.message });
+//   }
+  console.log("Tester Endpoint Triggered")
 });
 
 

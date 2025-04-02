@@ -3,7 +3,7 @@ import sendRecommendations from './crons/sendRecommendations.js';
 import deleteOudated from './crons/deleteOutdated.js';
 
 const initializeCronJobs = () => {
-  scrapeDataJob();
+  //scrapeDataJob();
   sendRecommendations();
   deleteOudated();
 };
