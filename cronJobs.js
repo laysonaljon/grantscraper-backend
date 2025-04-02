@@ -4,7 +4,7 @@ import deleteOudated from './crons/deleteOutdated.js';
 
 const initializeCronJobs = () => {
   //scrapeDataJob();
-  sendRecommendations();
+  //sendRecommendations();
   deleteOudated();
 };
 
