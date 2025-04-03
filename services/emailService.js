@@ -106,7 +106,9 @@ const generateScholarshipCard = (scholarship) => {
   return `
     <a href="${process.env.DASHBOARD}/${scholarship._id}" target="_blank" class="scholarship-card">
       <strong class="scholarship-link">${scholarship.name}</strong><br />
-      <span class="scholarship-link">${formattedDeadline}</span>
+      <span class="scholarship-link">${formattedDeadline}</span><br />
+      <span class="scholarship-link">${scholarship.level}</span><br />
+      <span class="scholarship-link">${scholarship.type}</span><br />
     </a>
   `;
 };
