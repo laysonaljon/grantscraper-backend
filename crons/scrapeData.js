@@ -6,7 +6,7 @@ dotenv.config();
 
 export const scrapeDataJob = async () => {
   try {
-    const apiUrl = `${process.env.API}/scholarships/run-tester`;
+    const apiUrl = `${process.env.API}/scholarships/run-scraper`;
     const response = await axios.post(apiUrl);
     console.log('Scraping triggered successfully');
   } catch (error) {
