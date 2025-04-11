@@ -1,14 +1,14 @@
-import cron from 'node-cron';
 import axios from 'axios';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 export const scrapeDataJob = async () => {
+  console.log('Triggering the /scrape endpoint...');
+  const apiUrl = `${process.env.API}/scholarships/run-scraper`;
   try {
-    const apiUrl = `${process.env.API}/scholarships/run-scraper`;
-    const response = await axios.post(apiUrl);
-    console.log('Scraping triggered successfully');
+    await axios.post(apiUrl);
+    console.log('Scraping triggered successfully:', new Date().toLocaleString());
   } catch (error) {
     console.error('Error in scrapeDataJob:', {
       message: error.message,
@@ -16,11 +16,5 @@ export const scrapeDataJob = async () => {
     });
   }
 };
-
-// Schedule the cron job to run once a week (every Monday at midnight UTC)
-cron.schedule('0 0 1 *  *  *', async () => {
-  console.log('Running weekly scrape job...');
-  //await scrapeDataJob();
-});
 
 export default scrapeDataJob;
