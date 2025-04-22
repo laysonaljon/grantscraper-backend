@@ -126,6 +126,57 @@ router.post('/add', async (req, res) => {
   }
 });
 
+// GET endpoint to search scholarships by keyword
+router.get('/search', async (req, res) => {
+  const { keyword } = req.query;
+
+  if (!keyword) {
+      return res.status(400).json({ error: 'Keyword is required' });
+  }
+
+  try {
+      // Build regex for case-insensitive partial match
+      const searchRegex = new RegExp(keyword, 'i');
+
+      // Build dynamic OR query to match any field
+      const query = {
+          deleted_at: null,
+          $or: [
+              { name: searchRegex },
+              { description: searchRegex },
+              { type: searchRegex },
+              { level: searchRegex },
+              { 'source.link': searchRegex },
+              { 'source.site': searchRegex },
+              { 'eligibility.title': searchRegex },
+              { 'eligibility.items': searchRegex },
+              { 'benefits.title': searchRegex },
+              { 'benefits.items': searchRegex },
+              { 'requirements.title': searchRegex },
+              { 'requirements.items': searchRegex },
+              { 'misc.type': searchRegex },
+              { 'misc.data': searchRegex }
+          ]
+      };
+
+      // Execute the query and return _id, name, level, and type
+      const results = await Scholarships.find(query).select('_id name level type').lean();
+
+      // Transform _id to id for the response
+      const transformedResults = results.map(item => ({
+          id: item._id.toString(),
+          name: item.name,
+          level: item.level,
+          type: item.type
+      }));
+
+      res.status(200).json(transformedResults);
+  } catch (error) {
+      console.error('Search error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET specific scholarship by ID
 router.get('/:scholarshipId', async (req, res) => {
   const { scholarshipId } = req.params;
@@ -335,7 +386,6 @@ router.post('/run-scraper', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
-
 
 // Tester endpoint for scraper
 router.post('/run-tester', async (req, res) => {
