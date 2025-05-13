@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
+  "description": "This is the backend of the Grantscraper",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -22,5 +22,14 @@
     "nodemailer": "^6.9.16",
     "nodemon": "^3.0.1",
     "request-promise": "^4.2.6"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/laysonaljon/grantscraper-backend.git"
+  },
+  "bugs": {
+    "url": "https://github.com/laysonaljon/grantscraper-backend/issues"
+  },
+  "homepage": "https://github.com/laysonaljon/grantscraper-backend#readme"
 }
