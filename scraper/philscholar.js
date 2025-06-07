@@ -79,14 +79,14 @@ const philscholar = async (testMode = false) => {
             const descriptions = [];
             
             if (heading.length) {
-              // Find the spacer <div>
-              const spacer = heading.nextAll('div[aria-hidden="true"].wp-block-spacer').first();
+              // Define where to stop: next h2, spacer div, or blockquote
+              const stopSelector = 'h2, div.wp-block-spacer[aria-hidden="true"], blockquote';
             
-              // Extract all <p> elements between the heading and spacer
-              heading.nextUntil(spacer, 'p').each((index, element) => {
+              // Select all <p> elements between heading and the next stop element
+              heading.nextUntil(stopSelector, 'p').each((index, element) => {
                 descriptions.push(scholarship$(element).text().trim());
               });
-            }
+            }            
             
             // Join paragraphs with newline breaks
             const description = descriptions.join('\n\n');
