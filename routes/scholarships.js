@@ -396,6 +396,7 @@ router.post('/run-tester', async (req, res) => {
 //     console.error('Error running scraper:', error);
 //     res.status(500).json({ message: 'Error running scraper', error: error.message });
 //   }
+  res.status(200).json({ message: 'successful'});
   console.log("Tester Endpoint Triggered")
 });
 
