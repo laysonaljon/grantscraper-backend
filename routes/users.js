@@ -146,4 +146,103 @@ router.post('/recommend', async (req, res) => {
   }
 });
 
+router.post('/recommend-test', async (req, res) => {
+  try {
+    const targetEmail = 'aljonlayson21@gmail.com';
+
+    // Fetch the user's preferences (level and type) for the target email
+    // This assumes a user with this email exists and has preferences.
+    // If a user can have multiple entries with different levels/types,
+    // we need to aggregate them as done in the original logic.
+    const userEntries = await Users.find({ email: targetEmail }, 'level type');
+
+    if (userEntries.length === 0) {
+      return res.status(404).json({ message: `No user data found for ${targetEmail}. Cannot generate recommendations.` });
+    }
+
+    // Aggregate preferences for the target user, similar to the original logic
+    const userPreferences = {
+      levels: new Set(),
+      types: new Set()
+    };
+    userEntries.forEach(entry => {
+      if (entry.level) userPreferences.levels.add(entry.level);
+      if (entry.type) userPreferences.types.add(entry.type);
+    });
+
+    const levels = Array.from(userPreferences.levels);
+    const types = Array.from(userPreferences.types);
+
+    // Initialize recommendations
+    let recommendedScholarships = [];
+
+    // 1. Scholarships matching both levels and types
+    if (levels.length > 0 && types.length > 0) {
+      for (const level of levels) {
+        for (const type of types) {
+          const scholarships = await Scholarships.find({
+            level,
+            type,
+            deleted_at: null // Exclude soft-deleted scholarships
+          });
+          recommendedScholarships.push(...scholarships);
+        }
+      }
+    }
+
+    // 2. If no scholarships match both levels and types, get scholarships matching only levels
+    if (recommendedScholarships.length === 0 && levels.length > 0) {
+      for (const level of levels) {
+        const byLevel = await Scholarships.find({
+          level,
+          deleted_at: null // Exclude soft-deleted scholarships
+        });
+        recommendedScholarships.push(...byLevel);
+      }
+    }
+
+    // 3. If still no matches, get scholarships matching only types
+    if (recommendedScholarships.length === 0 && types.length > 0) {
+      for (const type of types) {
+        const byType = await Scholarships.find({
+          type,
+          deleted_at: null // Exclude soft-deleted scholarships
+        });
+        recommendedScholarships.push(...byType);
+      }
+    }
+
+    // 4. If no matches at all, recommend random scholarships
+    if (recommendedScholarships.length === 0) {
+      const randomScholarships = await Scholarships.aggregate([
+        { $match: { deleted_at: null } }, // Ensure random sample is not deleted
+        { $sample: { size: 5 } } // Randomly sample up to 5 scholarships
+      ]);
+      recommendedScholarships.push(...randomScholarships);
+    }
+
+    // Remove duplicates based on scholarship ID using a Set
+    const uniqueScholarshipIds = new Set();
+    recommendedScholarships = recommendedScholarships.filter(scholarship => {
+      const idString = scholarship._id.toString();
+      if (!uniqueScholarshipIds.has(idString)) {
+        uniqueScholarshipIds.add(idString);
+        return true; // Keep this scholarship
+      }
+      return false; // Skip duplicate scholarship
+    });
+
+    // Limit to a maximum of 5 scholarships
+    recommendedScholarships = recommendedScholarships.slice(0, 5);
+
+    // Send the email to the specific user
+    await recommendEmail(targetEmail, 'Scholarship Recommendations Just for You! (Test)', recommendedScholarships);
+
+    res.status(200).json({ message: `Test recommendation email sent successfully to ${targetEmail}.` });
+  } catch (error) {
+    console.error('Error while sending test recommendation email to aljonlayson21@gmail.com:', error);
+    res.status(500).json({ error: 'Failed to send test recommendation email.', details: error.message });
+  }
+});
+
 export default router;

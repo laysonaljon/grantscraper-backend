@@ -1,7 +1,6 @@
 import express from 'express';
 import Scholarships from '../mongodb/models/scholarships.js';
 import runScraper from '../scraper/index.js';
-import philscholar from '../scraper/philscholar.js';
 
 const router = express.Router();
 
