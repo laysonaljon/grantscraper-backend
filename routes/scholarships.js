@@ -6,6 +6,7 @@ const router = express.Router();
 
 // GET all scholarships with sorting and pagination
 router.route('/').get(async (req, res) => {
+  const startTime = Date.now();
   const { sort, page, limit, filters = {} } = req.query; // Default to page 1 and limit 10 if not provided
 
   // Define sorting options
@@ -34,16 +35,35 @@ router.route('/').get(async (req, res) => {
   }
 
   try {
-    // Calculate total items based on filters
-    const totalItems = await Scholarships.countDocuments({ deleted_at: null, ...filterCriteria });
-    // Fetch scholarships with applied filters and pagination
-    const scholarships = await Scholarships.find({ deleted_at: null, ...filterCriteria })
-      .sort(sortOptions)
-      .skip((Number(page) - 1) * Number(limit))
-      .limit(Number(limit));
+    // Set cache headers for better performance
+    res.set({
+      'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
+      'ETag': `scholarships-${page}-${limit}-${sort}-${JSON.stringify(filters)}`
+    });
+
+    // Use aggregation pipeline for better performance with large datasets
+    const pipeline = [
+      { $match: { deleted_at: null, ...filterCriteria } },
+      { $facet: {
+        items: [
+          { $sort: sortOptions },
+          { $skip: (Number(page) - 1) * Number(limit) },
+          { $limit: Number(limit) }
+        ],
+        totalItems: [
+          { $count: 'count' }
+        ]
+      }}
+    ];
+
+    const result = await Scholarships.aggregate(pipeline);
     
-    // Calculate pagination details
+    const scholarships = result[0].items;
+    const totalItems = result[0].totalItems[0]?.count || 0;
     const totalPages = Math.ceil(totalItems / limit);
+
+    const responseTime = Date.now() - startTime;
+    console.log(`Scholarships API response time: ${responseTime}ms for page ${page}, limit ${limit}`);
 
     res.status(200).json({
       items: scholarships,
@@ -53,10 +73,12 @@ router.route('/').get(async (req, res) => {
         last_page: totalPages,
         total_items: totalItems,
         sortKey: sort,
+        response_time_ms: responseTime,
       },
     });
   } catch (err) {
-    console.error('Error fetching scholarships:', err); // Log the error
+    const responseTime = Date.now() - startTime;
+    console.error(`Error fetching scholarships (${responseTime}ms):`, err);
     res.status(500).json({ success: false, message: 'Fetching scholarships failed, please try again' });
   }
 });
@@ -134,32 +156,52 @@ router.get('/search', async (req, res) => {
   }
 
   try {
-      // Build regex for case-insensitive partial match
-      const searchRegex = new RegExp(keyword, 'i');
+      // Set cache headers for search results
+      res.set({
+        'Cache-Control': 'public, max-age=180', // Cache for 3 minutes
+        'ETag': `search-${keyword}`
+      });
 
-      // Build dynamic OR query to match any field
-      const query = {
+      let results;
+      
+      // Use text search for simple keywords, regex for complex patterns
+      if (keyword.length >= 3 && !keyword.includes('$') && !keyword.includes('^')) {
+        // Use text search for better performance with simple keywords
+        results = await Scholarships.find({
           deleted_at: null,
-          $or: [
-              { name: searchRegex },
-              { description: searchRegex },
-              { type: searchRegex },
-              { level: searchRegex },
-              { 'source.link': searchRegex },
-              { 'source.site': searchRegex },
-              { 'eligibility.title': searchRegex },
-              { 'eligibility.items': searchRegex },
-              { 'benefits.title': searchRegex },
-              { 'benefits.items': searchRegex },
-              { 'requirements.title': searchRegex },
-              { 'requirements.items': searchRegex },
-              { 'misc.type': searchRegex },
-              { 'misc.data': searchRegex }
-          ]
-      };
+          $text: { $search: keyword }
+        })
+        .select('_id name level type')
+        .lean()
+        .limit(50);
+      } else {
+        // Fall back to regex search for complex patterns
+        const searchRegex = new RegExp(keyword, 'i');
+        const query = {
+            deleted_at: null,
+            $or: [
+                { name: searchRegex },
+                { description: searchRegex },
+                { type: searchRegex },
+                { level: searchRegex },
+                { 'source.link': searchRegex },
+                { 'source.site': searchRegex },
+                { 'eligibility.title': searchRegex },
+                { 'eligibility.items': searchRegex },
+                { 'benefits.title': searchRegex },
+                { 'benefits.items': searchRegex },
+                { 'requirements.title': searchRegex },
+                { 'requirements.items': searchRegex },
+                { 'misc.type': searchRegex },
+                { 'misc.data': searchRegex }
+            ]
+        };
 
-      // Execute the query and return _id, name, level, and type
-      const results = await Scholarships.find(query).select('_id name level type').lean();
+        results = await Scholarships.find(query)
+          .select('_id name level type')
+          .lean()
+          .limit(50);
+      }
 
       // Transform _id to id for the response
       const transformedResults = results.map(item => ({
@@ -181,8 +223,14 @@ router.get('/:scholarshipId', async (req, res) => {
   const { scholarshipId } = req.params;
 
   try {
-    // Find scholarship by ID
-    const scholarship = await Scholarships.findById(scholarshipId);
+    // Set cache headers for individual scholarship
+    res.set({
+      'Cache-Control': 'public, max-age=600', // Cache for 10 minutes
+      'ETag': `scholarship-${scholarshipId}`
+    });
+
+    // Find scholarship by ID with lean() for better performance
+    const scholarship = await Scholarships.findById(scholarshipId).lean();
 
     if (!scholarship) {
       return res.status(404).json({ message: 'Scholarship not found' });

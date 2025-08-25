@@ -5,10 +5,13 @@ const connectDB = async (url) => {
   
   try {
     await mongoose.connect(url, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
-    console.log('Connected to MongoDB');
+    console.log('Connected to MongoDB with optimized settings');
   } catch (err) {
     console.error('Failed to connect to MongoDB');
     console.error(err);
