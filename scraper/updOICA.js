@@ -1,5 +1,6 @@
 import request from 'request-promise';
 import * as cheerio from 'cheerio';
+import { extractProgramsFromFields } from '../utils/programExtractor.js';
 
 const pageURL = 'https://oica.upd.edu.ph/grants-awards/';
 
@@ -153,12 +154,22 @@ const scrapeUPDOICA = async () => {
                     }
                 });
 
+                // Extract programs from all text content
+                const programs = extractProgramsFromFields({
+                    name,
+                    description,
+                    benefits,
+                    eligibility,
+                    requirements
+                });
+
                 scholarships.push({
                     name,
                     description,
                     eligibility,
                     requirements,
                     benefits,
+                    programs,
                     deadline: 'Ongoing',
                     level: 'College',
                     type: 'Art',

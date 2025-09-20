@@ -32,6 +32,7 @@ const scholarshipSchema = new Schema({
     type: { type: String },
     data: { type: String }
   }],
+  programs: [{ type: String }], // Array of degree programs, courses, or fields of study covered
   deleted_at: { type: Date, default: null }
 });
 

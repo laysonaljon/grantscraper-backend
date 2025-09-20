@@ -1,5 +1,6 @@
 import request from 'request-promise';
 import * as cheerio from 'cheerio';
+import { extractProgramsFromFields } from '../utils/programExtractor.js';
 
 const pageURL = `https://www.hau.edu.ph/admissions/scholarship-and-grants`;
 
@@ -120,6 +121,15 @@ const scrapeHAU = async () => {
 
                     const type = identifyType(`${name} ${description} ${requirements} ${eligibility.join(' ')}`);
 
+                    // Extract programs from all text content
+                    const programs = extractProgramsFromFields({
+                        name,
+                        description,
+                        benefits,
+                        eligibility,
+                        requirements
+                    });
+
                     if (description || eligibility.length || requirements.length || benefits.length) {
                         scholarships.push({
                             name: name.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase()),
@@ -127,6 +137,7 @@ const scrapeHAU = async () => {
                             eligibility,
                             requirements,
                             benefits,
+                            programs,
                             deadline: 'Ongoing',
                             level,
                             type,

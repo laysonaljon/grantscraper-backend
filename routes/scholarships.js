@@ -58,7 +58,23 @@ router.route('/').get(async (req, res) => {
 
     const result = await Scholarships.aggregate(pipeline);
     
-    const scholarships = result[0].items;
+    const scholarships = result[0].items.map(scholarship => {
+      const { description, eligibility, benefits, requirements, source, misc, ...scholarshipWithoutFields } = scholarship;
+      return {
+        ...scholarshipWithoutFields,
+        programs: (scholarship.name && (
+          scholarship.name.toLowerCase().includes('highschool') ||
+          scholarship.name.toLowerCase().includes('high school') ||
+          scholarship.name.toLowerCase().includes('senior high') ||
+          scholarship.name.toLowerCase().includes('junior high school') ||
+          scholarship.name.toLowerCase().includes('senior high school') ||
+          scholarship.name.toLowerCase().includes('grade 7') ||
+          scholarship.name.toLowerCase().includes('certificate')
+        )) || scholarship.level === 'Basic Education'
+          ? 'N/A' 
+          : (scholarship.programs ? scholarship.programs.join(', ') : '')
+      };
+    });
     const totalItems = result[0].totalItems[0]?.count || 0;
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -243,7 +259,105 @@ router.get('/:scholarshipId', async (req, res) => {
   }
 });
 
-// DELETE endpoint to soft delete scholarships with past deadlines
+// DELETE endpoint to soft delete scholarships with different criteria
+router.delete('/soft-delete', async (req, res) => {
+  try {
+    const { type } = req.query;
+
+    if (!type) {
+      return res.status(400).json({ 
+        message: 'Type parameter is required. Valid types: all, duplicate, expired' 
+      });
+    }
+
+    let result;
+    let message;
+
+    switch (type) {
+      case 'all':
+        // Soft delete all non-deleted scholarships
+        result = await Scholarships.updateMany(
+          { deleted_at: null },
+          { $set: { deleted_at: new Date().toISOString() } }
+        );
+        message = `${result.modifiedCount} scholarship(s) marked as deleted successfully.`;
+        break;
+
+      case 'expired':
+        // Soft delete scholarships with past deadlines
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+
+        result = await Scholarships.updateMany(
+          {
+            $or: [
+              { deadline: { $lt: today.toISOString() } },
+              { deadline: 'Passed' }
+            ],
+            deleted_at: null
+          },
+          { $set: { deleted_at: new Date().toISOString() } }
+        );
+        message = `${result.modifiedCount} expired scholarship(s) marked as deleted successfully.`;
+        break;
+
+      case 'duplicate':
+        // Find and soft delete duplicate scholarships based on name and deadline
+        const duplicates = await Scholarships.aggregate([
+          { $match: { deleted_at: null } },
+          {
+            $group: {
+              _id: { name: '$name', deadline: '$deadline' },
+              count: { $sum: 1 },
+              docs: { $push: '$_id' }
+            }
+          },
+          { $match: { count: { $gt: 1 } } }
+        ]);
+
+        if (duplicates.length === 0) {
+          return res.status(200).json({ message: 'No duplicate scholarships found.' });
+        }
+
+        // Keep the first document of each duplicate group, delete the rest
+        const idsToDelete = [];
+        duplicates.forEach(group => {
+          // Keep the first document, mark others for deletion
+          idsToDelete.push(...group.docs.slice(1));
+        });
+
+        result = await Scholarships.updateMany(
+          { _id: { $in: idsToDelete } },
+          { $set: { deleted_at: new Date().toISOString() } }
+        );
+        message = `${result.modifiedCount} duplicate scholarship(s) marked as deleted successfully.`;
+        break;
+
+      default:
+        return res.status(400).json({ 
+          message: 'Invalid type parameter. Valid types: all, duplicate, expired' 
+        });
+    }
+
+    if (result.matchedCount === 0) {
+      return res.status(200).json({ message: `No scholarships found for type: ${type}` });
+    }
+
+    res.status(200).json({
+      message,
+      deleted_count: result.modifiedCount,
+      type
+    });
+  } catch (error) {
+    console.error('Error in soft delete operation:', error);
+    res.status(500).json({
+      message: 'Error performing soft delete operation',
+      error: error.message,
+    });
+  }
+});
+
+// DELETE endpoint to soft delete scholarships with past deadlines (legacy endpoint)
 router.delete('/delete-outdated', async (req, res) => {
   try {
     const today = new Date();
@@ -326,6 +440,7 @@ router.post('/run-scraper', async (req, res) => {
     // Track added and similar scholarships
     const addedScholarships = [];
     const similarScholarships = [];
+    const scholarshipsToSoftDelete = [];
 
     // Function to compare two scholarships for equality (excluding name and deadline)
     const compareScholarships = (existing, incoming) => {
@@ -348,10 +463,8 @@ router.post('/run-scraper', async (req, res) => {
       if (activeScholarship) {
         // If the existing scholarship has the same name and deadline but fields differ, we soft delete it
         if (!compareScholarships(activeScholarship, scholarship)) {
-          // Soft delete the existing scholarship
-          activeScholarship.deleted_at = new Date();
-          activeScholarship.save();
-
+          // Collect scholarship to be soft deleted
+          scholarshipsToSoftDelete.push(activeScholarship._id);
           return true;  // Mark this scholarship for insertion
         }
         // If no changes, consider it similar
@@ -387,10 +500,8 @@ router.post('/run-scraper', async (req, res) => {
       if (activeScholarship) {
         // If the existing scholarship has the same name and deadline but fields differ, we soft delete it
         if (!compareScholarships(activeScholarship, scholarship)) {
-          // Soft delete the existing scholarship
-          activeScholarship.deleted_at = new Date();
-          activeScholarship.save();
-
+          // Collect scholarship to be soft deleted
+          scholarshipsToSoftDelete.push(activeScholarship._id);
           return true;  // Mark this scholarship for insertion
         }
         // If no changes, consider it similar
@@ -404,6 +515,14 @@ router.post('/run-scraper', async (req, res) => {
     if (newIncomingScholarships.length) {
       addedScholarships.push(...newIncomingScholarships);
       await Scholarships.insertMany(newIncomingScholarships);
+    }
+
+    // Soft delete scholarships that need to be replaced
+    if (scholarshipsToSoftDelete.length > 0) {
+      await Scholarships.updateMany(
+        { _id: { $in: scholarshipsToSoftDelete } },
+        { $set: { deleted_at: new Date() } }
+      );
     }
 
     // Remove incoming scholarships no longer in the source

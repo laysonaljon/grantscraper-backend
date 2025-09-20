@@ -10,7 +10,7 @@ const runScraper = async () => {
 
     // Run all scrapers in parallel
     const results = await Promise.all([
-      scrapeTesda(),
+     // scrapeTesda(),
       scrapeUnifast(),
       scrapeUPDOICA(),
       scrapeHAU(),

@@ -1,5 +1,6 @@
 import request from 'request-promise';
 import * as cheerio from 'cheerio';
+import { extractProgramsFromFields } from '../utils/programExtractor.js';
 
 const pageURL = `https://unifast.gov.ph/tes.html`;
 const baseUrl = 'https://unifast.gov.ph';
@@ -91,6 +92,15 @@ const scrapeUnifast = async () => {
                         data: `${baseUrl}/${resourceLink}`,
                     });
                 }
+            });
+
+            // Extract programs from all text content
+            program.programs = extractProgramsFromFields({
+                name: program.name,
+                description: program.description,
+                benefits: program.benefits,
+                eligibility: program.eligibility,
+                requirements: program.requirements
             });
 
             return program;

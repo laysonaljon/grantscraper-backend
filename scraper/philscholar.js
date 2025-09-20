@@ -1,6 +1,7 @@
 import request from 'request-promise';
 import * as cheerio from 'cheerio';
 import moment from 'moment-timezone';
+import { extractProgramsFromFields } from '../utils/programExtractor.js';
 
 const identifyLevel = (text) => {
     if (/elementary|high school|k-12|basic education/i.test(text)) return 'Basic Education';
@@ -274,6 +275,15 @@ const philscholar = async (testMode = false) => {
             // Type is Either ['Athletic', 'Art', 'Merit', 'Need-based', 'Grant']
             const type = identifyType(`${name} ${description} ${requirements} ${eligibility.join(' ')}`);
 
+            // Extract programs from all text content
+            const programs = extractProgramsFromFields({
+                name,
+                description,
+                benefits,
+                eligibility,
+                requirements
+            });
+
             // Store the result
             scholarships.push({
                 name,
@@ -284,6 +294,7 @@ const philscholar = async (testMode = false) => {
                 benefits,
                 eligibility,
                 requirements,
+                programs,
                 misc,
                 source: {
                 link,

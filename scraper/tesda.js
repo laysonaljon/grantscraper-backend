@@ -1,5 +1,6 @@
 import request from 'request-promise';
 import * as cheerio from 'cheerio';
+import { extractProgramsFromFields } from '../utils/programExtractor.js';
 
 const pageURL = `https://www.tesda.gov.ph/barangay/`;
 
@@ -37,6 +38,15 @@ const scrapeTesda = async () => {
                 }
             });
             scholarship.description = description.join(' '); // Combine into a single string
+
+            // Extract programs from all text content
+            scholarship.programs = extractProgramsFromFields({
+                name: scholarship.name,
+                description: scholarship.description,
+                benefits: scholarship.benefits,
+                eligibility: scholarship.eligibility,
+                requirements: scholarship.requirements
+            });
 
             if (index === 0) {
                 $(element).find('.col-md-6[data-aos="fade-up"] ul li').each((i, li) => {
