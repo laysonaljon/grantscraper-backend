@@ -413,11 +413,6 @@ const PROGRAM_CATEGORIES = {
     'BS Landscape Architecture': 'Architecture & Design',
     'BS Product Design': 'Architecture & Design',
     'BS Digital Design': 'Architecture & Design',
-    'BS Arch': 'Architecture & Design',
-    'BSID': 'Architecture & Design',
-    'BSGD': 'Architecture & Design',
-    'BSFD': 'Architecture & Design',
-    'BSID': 'Architecture & Design',
     
     // Law & Legal Programs
     'Bachelor of Laws': 'Law',
